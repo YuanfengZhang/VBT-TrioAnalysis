@@ -13,8 +13,12 @@ INCUTIL := Utils
 INCBASE := Base
 
 CFLAGS := -std=c++11 -Wall -O2 -g
-LIB := -lz -pthread -lhts
-INC := -I $(INCCORE) -I htslib -I $(INCDUO) -I $(INCTRIO) -I $(INCVCFIO) -I $(INCUTIL) -I $(INCBASE) -I $(shell pwd)
+HTSLIB_PREFIX ?=
+HTSINC := $(if $(HTSLIB_PREFIX),-I $(HTSLIB_PREFIX)/include -I $(HTSLIB_PREFIX)/include/htslib,-I htslib)
+comma := ,
+HTSLIB := $(if $(HTSLIB_PREFIX),-L $(HTSLIB_PREFIX)/lib -Wl$(comma)-rpath$(comma)$(HTSLIB_PREFIX)/lib,) -lhts
+LIB := -lz -pthread $(HTSLIB)
+INC := $(HTSINC) -I $(INCCORE) -I $(INCDUO) -I $(INCTRIO) -I $(INCVCFIO) -I $(INCUTIL) -I $(INCBASE) -I $(shell pwd)
 
 SRCCORE := Core/src
 SRCDUO := DuoComparison/src
@@ -83,3 +87,11 @@ clean:
 
 
 .PHONY: clean
+
+$(BUILDDIR)/mixed_replay_test: tests/mixed_replay.cpp $(filter-out $(BUILDDIR)/main.o,$(OBJECTS))
+	$(CC) $(CFLAGS) $(INC) $^ -o $@ $(LIB)
+
+test-core: $(BUILDDIR)/mixed_replay_test
+	./$(BUILDDIR)/mixed_replay_test
+
+.PHONY: test-core

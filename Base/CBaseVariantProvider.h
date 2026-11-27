@@ -55,7 +55,7 @@ public:
 protected:
 
     ///Find the optimal Trimming for variant list that have more than 1 trimming options. (See Readme under 'core' folder)
-    void FindOptimalTrimmings(std::vector<CVariant>& a_rVariantList, std::vector<std::vector<CVariant>>* a_pAllVarList, const SConfig& a_rConfig);
+    static void FindOptimalTrimmings(std::vector<CVariant>& a_rVariantList, std::vector<std::vector<CVariant>>* a_pAllVarList, const SConfig& a_rConfig);
     
     //REFERENCE FASTA
     CFastaParser m_referenceFasta;

@@ -89,3 +89,88 @@ For additional parameters, please check mendelian paramater specifications.
 
 A [Doxygen html documentation](Doxygen) is available for VBT under Doxygen folder.
 
+
+
+## Explicit native XY mode
+
+Build with matching HTSlib headers and library (tested with HTSlib 1.22.1):
+
+```sh
+make -B -j4 HTSLIB_PREFIX=/path/to/htslib-install
+```
+
+Do not link the bundled macOS libraries on Linux. The executable is `./vbt`.
+
+```sh
+./vbt mendelian -mother mother.vcf -father father.vcf -child child.vcf \
+  -ref reference.fa -outDir output -out-prefix trio \
+  --child-sex male --par-dir assembly-bed-directory --ypar-masked
+```
+
+`--child-sex` accepts `male`, `female` or `unknown`. It describes only the
+child; the model assumes an XX mother and XY father. `--ypar-masked` is a
+pure flag, default false; `--ypar-masked=false` is an error. It declares how
+calls were generated and does not verify their provenance or modify a FASTA.
+Without any new policy option, legacy behavior is unchanged.
+
+The resource directory must contain exactly one file for each suffix
+`chrX_PAR.bed`, `chrX_nonPAR.bed`, `chrY_PAR.bed`, `chrY_nonPAR.bed`, optionally
+with `.gz`. Coordinates are zero-based, half-open, nonnegative and nonoverlapping.
+Gaps remain unclassified. An optional `par_regions.tsv` with columns
+`chrom`, `start`, `end`, `region` labels canonical intervals `PAR1` or `PAR2`.
+It names regions only and never expands BED eligibility. Without the manifest,
+PAR fragments retain generic X_PAR/Y_PAR names rather than ordinal labels.
+Variant reference spans must fit in one BED interval; pure insertions use their
+anchor. XY aliases X/chrX and Y/chrY are accepted.
+
+Masked X PAR uses mother2/father2/child2. Unmasked X PAR is not evaluated;
+Y PAR is always excluded. Male X nonPAR uses mother2/child1, male Y nonPAR
+uses father1/child1, and female X nonPAR uses mother2/father1/child2 with
+separate child paths for the two parental contributions. Homozygous pseudo2
+calls are folded only in the computation; original GTs remain unchanged.
+Haploid heterozygotes and explicit missing required GTs are not evaluated.
+Nonparticipating parents do not determine completeness or the nonreference gate.
+
+The mixed-ploidy engine reuses VBT CVariant trimming, the original
+CBaseVariantProvider::FindOptimalTrimmings ordinary/ambiguous context
+selection and CHaplotypeSequence playback. The default end-first trim and
+neighbor-driven opposite trim remain native components. Joint state dominance retains the path with most included source
+records; ties retain the first deterministic state. Excluded source records
+are representation-dependent matching attribution, not de novo localization.
+A record-free interval in a variant-only VCF replays reference as in legacy VBT;
+this does not establish a known, complete reference GT. Explicit missing GTs
+are retained and form replay barriers. BED gaps and model boundaries also
+separate replay domains. Phase sets, including phased GTs without PS, constrain
+orientation jointly within a domain. No new sitewise transmission matcher or
+repeat-window normalization is applied.
+
+Autosomes use the original provider, four GT/AM comparisons, decider, writer
+and reports. XY input is routed away before the legacy two-slot GT decoder.
+In explicit mode, `PREFIX_trio.vcf` and legacy logs therefore contain only
+autosomes. Consumers must also read all three new XY products:
+
+- `PREFIX_mother_xy.vcf`
+- `PREFIX_father_xy.vcf`
+- `PREFIX_child_xy.vcf`
+- `PREFIX_xy_summary.tsv`
+
+Each source VCF preserves original records, alleles, all sample columns and GTs.
+INFO `XY_SOURCE_ID` is `mother:N`, `father:N` or `child:N`, where N is the
+one-based record ordinal in the original input, including non-XY records.
+INFO `XY_STATUS` is consistent, violation, not_evaluable or unsupported;
+`XY_REGION` and `XY_REASON` identify native policy decisions. Only
+female_y_nonpar, unsupported_variant and unsupported_replay map to unsupported;
+other policy exclusions are not_evaluable. Consistent/violation are actual
+replay decisions. The summary header is
+`source\tregion\tstatus\treason\trecords` and counts source records, not
+unique trio events. Never sum three source counts as a sitewise denominator.
+A child-record denominator uses only the child source; parent-only events
+must be reported separately. An empty evaluated denominator has no rate.
+
+Run portable tests with an isolated scratch directory supplied explicitly:
+
+```sh
+make test-core HTSLIB_PREFIX=/path/to/htslib-install
+python3 -I tests/native_xy.py ./vbt /path/to/scratch/xy
+python3 -I tests/native_representations.py ./vbt /path/to/baseline-vbt /path/to/scratch/representations
+```

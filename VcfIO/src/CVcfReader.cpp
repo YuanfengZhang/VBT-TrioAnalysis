@@ -116,7 +116,15 @@ bool CVcfReader::GetNextRecord(CVariant * a_pVariant, int a_nId, const SConfig& 
     
     bcf_clear(m_pRecord);
     m_pRecord->d.m_allele = 0;
-    const int ok = bcf_read(m_pHtsFile, m_pHeader, m_pRecord);
+    int ok = bcf_read(m_pHtsFile, m_pHeader, m_pRecord);
+    // Input routing precedes the legacy two-slot genotype decoder. This also
+    // prevents excluded XY polyploid/missing calls from entering that decoder.
+    while (ok == 0 && a_rConfig.m_bAutosomeOnly) {
+        const std::string contig = bcf_hdr_id2name(m_pHeader, m_pRecord->rid);
+        if (contig != "X" && contig != "Y" && contig != "chrX" && contig != "chrY") break;
+        bcf_clear(m_pRecord);
+        ok = bcf_read(m_pHtsFile, m_pHeader, m_pRecord);
+    }
     bcf_unpack(m_pRecord, BCF_UN_ALL);
     
     if (ok == 0)

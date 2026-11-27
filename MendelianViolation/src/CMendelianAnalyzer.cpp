@@ -24,6 +24,7 @@
  */
 
 #include "CMendelianAnalyzer.h"
+#include "CExplicitXY.h"
 #include "SConfig.h"
 #include <string>
 #include "CPathReplay.h"
@@ -43,6 +44,7 @@ m_mendelianDecider(m_aBestPathsFatherChildGT, m_aBestPathsFatherChildAM, m_aBest
 
 int CMendelianAnalyzer::run(int argc, char **argv)
 {
+    if (HasExplicitXY(argc, argv)) return RunExplicitXY(argc, argv);
     std::time_t start, start1;
     double duration;
     
@@ -552,6 +554,8 @@ void CMendelianAnalyzer::ProcessChromosome(const std::vector<SChrIdTriplet>& a_n
 
 void CMendelianAnalyzer::PrintHelp() const
 {
+    std::cout << "Explicit native XY: --child-sex male|female|unknown --par-dir DIR [--ypar-masked] (flag only)." << std::endl;
+    std::cout << "XY mode preserves source VCFs as PREFIX_{mother,father,child}_xy.vcf; autosomes retain legacy trio output." << std::endl;
     std::cout << std::endl;
     std::cout << " --- MENDELIAN PARAMETERS --- " << std::endl;
     std::cout << "-father <father_vcf_path>    [Required.Add father VCF file.]" << std::endl;
