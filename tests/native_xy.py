@@ -37,6 +37,10 @@ def main() -> None:
         ('pseudo', 'male', False, 'chrX', 301, 'A', 'C', ('0/1', '.', '1/1'), 'consistent', 'pass'),
         ('hetero', 'male', False, 'chrX', 301, 'A', 'C', ('0/1', '.', '0/1'), 'not_evaluable', 'haploid_heterozygous'),
         ('missing', 'male', False, 'chrX', 301, 'A', 'C', ('./.', '.', '1'), 'not_evaluable', 'required_gt_missing'),
+        ('missing_beats_hetero', 'male', False, 'chrX', 301, 'A', 'C', ('./.', '.', '0/1'), 'not_evaluable', 'required_gt_missing'),
+        ('child_missing_beats_mother_ploidy', 'male', False, 'chrX', 301, 'A', 'C', ('1', '.', '.'), 'not_evaluable', 'required_gt_missing'),
+        ('father_missing_beats_hetero', 'male', False, 'chrY', 301, 'A', 'C', ('.', '.', '0/1'), 'not_evaluable', 'required_gt_missing'),
+        ('unknown_gap', 'unknown', False, 'chrX', 451, 'A', 'C', ('./.', '.', '0/1'), 'not_evaluable', 'unknown_child_sex'),
         ('ref', 'male', False, 'chrX', 301, 'A', 'C', ('0/0', '1', '0'), 'not_evaluable', 'all_required_reference'),
         ('gap', 'male', False, 'chrX', 451, 'A', 'C', ('0/1', '.', '1'), 'not_evaluable', 'unclassified_region'),
         ('boundary', 'male', False, 'chrX', 399, 'AAA', 'A', ('0/1', '.', '1'), 'not_evaluable', 'boundary_crossing'),
@@ -50,7 +54,7 @@ def main() -> None:
         for role, gt in zip(roles, gts):
             (out / f'{role}.vcf').write_text(header + f'#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{role}\n' + f'{chrom}\t{pos}\t{name}\t{ref}\t{alt}\t60\tPASS\t.\tGT\t{gt}\n')
         command = [str(binary), 'mendelian', '--child-sex', sex, '--par-dir', str(par), '-ref', str(reference), '-outDir', str(out), '-out-prefix', 'test']
-        for role in roles:
+        for role in reversed(roles):
             command.extend([f'-{role}', str(out / f'{role}.vcf')])
         if masked:
             command.append('--ypar-masked')
@@ -64,6 +68,9 @@ def main() -> None:
         assert (info['XY_STATUS'], info['XY_REASON']) == (status, reason), (name, info)
         assert info['XY_SOURCE_ID'] == 'child:1'
         assert columns[9] == gts[2], (name, columns[9], gts[2])
+        if name == 'child_missing_beats_mother_ploidy':
+            mother = (out / 'test_mother_xy.vcf').read_text()
+            assert 'XY_REASON=required_gt_missing' in mother, mother
     print(f'native XY CLI: {len(cases)} cases passed')
 
 

@@ -69,7 +69,11 @@ def main() -> None:
         result = subprocess.run(command, text=True, capture_output=True)
         (out / 'run.log').write_text(result.stdout + result.stderr)
         assert result.returncode == 0, (name, result.stderr[-2000:])
-        outputs.append((out / 'test_trio.vcf').read_text())
+        text = (out / 'test_trio.vcf').read_text()
+        records = [line for line in text.splitlines() if not line.startswith('#')]
+        assert len(records) == 4, (name, records)
+        assert 'Child Var Size:4' in result.stdout + result.stderr, name
+        outputs.append(text)
     assert outputs[0] == outputs[1] == outputs[2], 'Autosome baseline differs'
     print('native representation/phase/overlap: 7 passed; baseline/legacy/explicit autosome byte-identical')
 

@@ -292,10 +292,10 @@ void Eligibility(Record& record, const Options& options, const Policy& policy) {
     }
     if (insertion) end = record.variant.position + 1;
     record.domain = policy.Locate(record.chr, record.variant.position, end, record.region, record.reason);
-    if (!record.reason.empty()) return;
     const std::string chr = Chromosome(record.chr);
-    if (XY(chr) && options.sex == "unknown") record.reason = "unknown_child_sex";
-    else if (record.region.compare(0, 5, "Y_PAR") == 0) record.reason = "y_par_excluded";
+    if (XY(chr) && options.sex == "unknown") { record.reason = "unknown_child_sex"; return; }
+    if (!record.reason.empty()) return;
+    if (record.region.compare(0, 5, "Y_PAR") == 0) record.reason = "y_par_excluded";
     else if (record.region.compare(0, 5, "X_PAR") == 0 && !options.masked) record.reason = "par_requires_ypar_masked";
     else if (record.region == "Y_nonPAR" && options.sex == "female") record.reason = "female_y_nonpar";
     if (!record.reason.empty()) return;
@@ -339,6 +339,18 @@ void Analyze(std::array<Input, 3>& inputs, const Options& options, const Policy&
     for (auto& input : inputs) for (auto& record : input.records) {
         record.variant.id = id++;
         Eligibility(record, options, policy);
+    }
+    // Missing required calls outrank ploidy errors at the same observation.
+    for (auto& input : inputs) for (auto& record : input.records) {
+        if (record.reason.empty() || record.reason == "haploid_heterozygous" || record.reason == "unexpected_ploidy") {
+            const core::SMixedModel model = Model(record, options);
+            const std::array<int, 3> required{{model.motherPloidy, model.fatherPloidy, model.childPloidy}};
+            for (const auto& otherInput : inputs) for (const auto& other : otherInput.records)
+                if (required[other.source] && !other.complete && other.reason == "required_gt_missing"
+                    && Chromosome(other.chr) == Chromosome(record.chr) && other.domain == record.domain
+                    && record.variant.position < other.spanEnd && other.variant.position < record.spanEnd)
+                    record.reason = "required_gt_missing";
+        }
         if (!record.reason.empty()) { record.status = Status(record.reason); continue; }
         auto& domain = domains[{Chromosome(record.chr), record.domain}];
         domain.chr = record.chr;
